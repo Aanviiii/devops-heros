@@ -1,0 +1,4 @@
+     UID     PID    PPID  TTY        STIME COMMAND
+   Aanvi    1208       1 cons0    18:16:53 /usr/bin/bash
+   Aanvi    1267    1208 cons0    18:17:32 /usr/bin/bash
+   Aanvi    1275    1267 cons0    18:17:54 /usr/bin/ps
