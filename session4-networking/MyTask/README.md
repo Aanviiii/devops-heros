@@ -133,7 +133,14 @@ telnet google.com 80
 
 **Purpose:** Tests TCP connectivity to a remote host and port.
 
-**Output/Screenshot:** *(Add your terminal output here)*
+**Output/Screenshot:** 
+
+ComputerName     : google.com                                                                                                                 
+RemoteAddress    : 192.178.174.113                                                                                                            
+RemotePort       : 80                                                                                                                         
+InterfaceAlias   : Wi-Fi                                                                                                                      
+SourceAddress    : 10.114.2.185                                                                                                               
+TcpTestSucceeded : True
 
 ---
 
