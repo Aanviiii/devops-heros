@@ -1,76 +1,63 @@
-# Linux Fundamentals
+# Linux Fundamentals Homework
 
-## Overview
+## 1. Soft Link vs Hard Link
 
-This repository contains notes and practice exercises covering essential Linux concepts commonly used in system administration and DevOps.
+**Soft Link (Symbolic Link)**
 
-## Topics Covered
+* Acts like a shortcut to a file or directory.
+* Created using `ln -s`.
+* Breaks if the original file is deleted.
 
-### Soft Links & Hard Links
+**Hard Link**
 
-* Understanding the difference between symbolic (soft) links and hard links
-* Creating links using `ln` and `ln -s`
-* Deleting and testing links
-* Common interview questions on Linux links
+* Another name for the same file (same inode).
+* Created using `ln`.
+* Continues to work even if the original file is deleted.
 
-### User Management
+## 2. adduser vs useradd
 
-* Difference between `adduser` and `useradd`
-* Creating and managing users
-* Understanding why `adduser` is preferred on Ubuntu
+**adduser**
 
-### System Logs with journalctl
+* Interactive and beginner-friendly.
+* Automatically creates a home directory and sets up the user.
 
-* Viewing system logs
-* Viewing logs for specific services
-* Checking boot logs
-* Monitoring logs in real time
+**useradd**
 
-### Linux Command Fundamentals
+* Low-level command.
+* Requires additional options for full user setup.
 
-Practiced commonly used Linux commands for:
+**Recommended on Ubuntu:** `adduser`
 
-* File and directory management
-* Navigation
-* Process monitoring
-* User management
-* Networking
-* Permissions
-* Disk usage
-* Searching and filtering
+## 3. journalctl
 
-## Important Commands
+`journalctl` is used to view logs collected by systemd.
+
+Common commands:
 
 ```bash
-ln
-ln -s
-adduser
-useradd
-journalctl
-pwd
-ls
-cd
-mkdir
-touch
-cp
-mv
-rm
-cat
-grep
-find
-chmod
-chown
-ps
-top
-kill
-df
-du
-ip
-ping
-whoami
-id
+journalctl          # All logs
+journalctl -b       # Current boot logs
+journalctl -u nginx # Logs for a specific service
+journalctl -f       # Follow logs in real time
 ```
 
-## Learning Outcome
+## 4. Linux Command Cheat Sheet
 
-By completing these exercises, I gained practical experience with Linux file management, user administration, log analysis, and essential command-line operations that form the foundation of DevOps and system administration.
+| Command | Purpose                |
+| ------- | ---------------------- |
+| pwd     | Show current directory |
+| ls      | List files and folders |
+| cd      | Change directory       |
+| mkdir   | Create directory       |
+| touch   | Create file            |
+| cp      | Copy files             |
+| mv      | Move/Rename files      |
+| rm      | Delete files           |
+| cat     | View file contents     |
+| grep    | Search text            |
+| find    | Find files             |
+| chmod   | Change permissions     |
+| ps      | View processes         |
+| top     | Monitor processes      |
+| df -h   | Check disk usage       |
+| whoami  | Show current user      |
