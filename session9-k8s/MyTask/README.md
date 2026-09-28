@@ -32,3 +32,7 @@
 | ReplicaSet | Maintain a fixed number of Pods |
 | DaemonSet | Run one Pod on every node |
 | StatefulSet | Manage stateful applications with persistent storage |
+
+## Screenshots
+![img1](image.png)
+![img2](image-1.png)
