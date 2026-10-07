@@ -50,7 +50,7 @@ jobs:
       - name: Build images
         run: |
           docker build -t $REGISTRY/taskboard-backend:${{ github.sha }} $APP/backend
-          docker build -t $REGISTRY/taskboard-frontend:${{ github.sha }} $APP/frontend
+          docker build -t $REGISTRY/taskboard-frontend:${{ github.sha }} -f $APP/MyTask/frontend.Dockerfile $APP/frontend
       - name: Trivy report - backend
         uses: aquasecurity/trivy-action@v0.36.0
         with:
