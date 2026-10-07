@@ -81,13 +81,13 @@ jobs:
       - name: Build image
         run: docker build -t ${{ env.IMAGE }}:${{ github.sha }} ${{ env.APP_DIR }}
       - name: Trivy report (HIGH, CRITICAL)
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.IMAGE }}:${{ github.sha }}
           severity: HIGH,CRITICAL
           exit-code: "0"
       - name: Security gate - fail on fixable CRITICAL
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.IMAGE }}:${{ github.sha }}
           severity: CRITICAL
