@@ -1,4 +1,6 @@
-# Session - 10
+# Kubernetes Pods, ReplicaSets & Deployments
+
+Name: Aanvi Solanki     Roll no.: 24bcs10170        Group: A
 
 ## Cluster Health
 

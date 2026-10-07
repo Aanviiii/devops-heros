@@ -1,5 +1,7 @@
 # Git Homework
 
+Name: Aanvi Solanki     Roll no.: 24bcs10170        Group: A
+
 ## Task 1: git commit -a -m vs git commit -m
 
 ### git commit -m
@@ -58,8 +60,4 @@ git cherry-pick <commit-hash>
 git log --oneline
 ```
 
-### What I Learned
-
-* Cherry-pick allows selecting a specific commit from another branch.
-* It applies only the chosen commit without merging the entire branch.
-* Useful when a single bug fix or feature needs to be moved between branches.
+![cherry-pick](image-1.png)

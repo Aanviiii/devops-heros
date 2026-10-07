@@ -1,5 +1,7 @@
 # Kubernetes Notes
 
+Name: Aanvi Solanki     Roll no.: 24bcs10170        Group: A
+
 ## Deployment
 - Used to run stateless applications.
 - Ensures the required number of Pods are running.

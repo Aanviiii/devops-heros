@@ -1,5 +1,7 @@
 # Linux Fundamentals Homework
 
+Name: Aanvi Solanki     Roll no.: 24bcs10170        Group: A
+
 ## 1. Soft Link vs Hard Link
 
 **Soft Link (Symbolic Link)**

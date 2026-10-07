@@ -1,5 +1,7 @@
 # System Information Script
 
+Name: Aanvi Solanki     Roll no.: 24bcs10170        Group: A
+
 ## Description
 
 This shell script performs the following tasks:

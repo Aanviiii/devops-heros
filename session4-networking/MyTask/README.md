@@ -1,5 +1,7 @@
 # Networking Homework
 
+Name: Aanvi Solanki     Roll no.: 24bcs10170        Group: A
+
 ## Commands Practiced
 
 ### 1. ping
