@@ -1,0 +1,21 @@
+# Applied once from the admin side; it is not inside the synced path.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: session20-gitops
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Aanviiii/devops-heros.git
+    targetRevision: main
+    path: session20-monitoring-observability-gitops/MyTask/gitops/app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: session20
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
