@@ -1,0 +1,128 @@
+name: Session 21 TaskBoard CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "session21-python/**"
+      - ".github/workflows/session21-taskboard.yml"
+  workflow_dispatch:
+
+env:
+  APP: session21-python
+  REGISTRY: ghcr.io/aanviiii
+
+jobs:
+  test:
+    name: Test & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend dependencies
+        working-directory: ${{ env.APP }}/backend
+        run: pip install -r requirements.txt
+      - name: Run migrations + pytest
+        working-directory: ${{ env.APP }}/backend
+        env:
+          DATABASE_URL: sqlite:///./test.db
+        run: |
+          alembic upgrade head
+          pytest -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build frontend
+        working-directory: ${{ env.APP }}/frontend
+        run: npm install && npm run build
+
+  build-scan-push:
+    name: Docker Build, Trivy Scan, Push
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images
+        run: |
+          docker build -t $REGISTRY/taskboard-backend:${{ github.sha }} $APP/backend
+          docker build -t $REGISTRY/taskboard-frontend:${{ github.sha }} $APP/frontend
+      - name: Trivy report - backend
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/taskboard-backend:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+      - name: Trivy report - frontend
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/taskboard-frontend:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+          skip-setup-trivy: true
+      - name: Security gate - backend (fail on fixable CRITICAL)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/taskboard-backend:${{ github.sha }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+      - name: Security gate - frontend (fail on fixable CRITICAL)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/taskboard-frontend:${{ github.sha }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push images
+        run: |
+          docker push $REGISTRY/taskboard-backend:${{ github.sha }}
+          docker push $REGISTRY/taskboard-frontend:${{ github.sha }}
+
+  deploy:
+    name: Deploy with Helm (kind)
+    needs: build-scan-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: helm/kind-action@v1
+      - uses: azure/setup-helm@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull images and load into kind
+        run: |
+          for img in taskboard-backend taskboard-frontend; do
+            docker pull $REGISTRY/$img:${{ github.sha }}
+            kind load docker-image $REGISTRY/$img:${{ github.sha }} --name chart-testing
+          done
+      - name: Helm deploy
+        run: |
+          helm upgrade --install taskboard $APP/MyTask/helm/taskboard -n taskboard --create-namespace \
+            --set backend.image=$REGISTRY/taskboard-backend --set backend.tag=${{ github.sha }} \
+            --set frontend.image=$REGISTRY/taskboard-frontend --set frontend.tag=${{ github.sha }} \
+            --set monitoring.serviceMonitor.enabled=false --set hpa.enabled=false \
+            --wait --timeout 5m
+          kubectl get pods,svc -n taskboard
+      - name: Smoke test
+        run: |
+          kubectl run smoke -n taskboard --image=curlimages/curl:8.5.0 --restart=Never --rm -i -- \
+            sh -c "curl -s http://taskboard-taskboard-backend:8000/health; echo; curl -s http://taskboard-frontend/ | grep -o '<title>.*</title>'"
