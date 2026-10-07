@@ -1,0 +1,151 @@
+name: Session 17 DevSecOps Pipeline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "session-17-devsecops/MyTask/devsecops-project/**"
+      - ".github/workflows/session17-devsecops.yml"
+  workflow_dispatch:
+
+env:
+  APP_DIR: session-17-devsecops/MyTask/devsecops-project
+  IMAGE: ghcr.io/aanviiii/session17-devsecops
+
+jobs:
+  build-test:
+    name: Build & Unit Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Unit tests with coverage
+        run: pytest --cov=app --cov-report=term-missing
+
+  sast:
+    name: SAST - CodeQL
+    needs: build-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          source-root: ${{ env.APP_DIR }}
+      - uses: github/codeql-action/analyze@v3
+
+  sca:
+    name: SCA - pip-audit
+    needs: build-test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Scan dependencies for known CVEs
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+
+  secret-scan:
+    name: Secret Scan - Gitleaks
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for hard-coded secrets
+        run: |
+          docker run --rm -v "$PWD/${{ env.APP_DIR }}:/src" zricethezav/gitleaks:latest \
+            detect --source /src --no-git --redact -v
+
+  docker-scan-gate:
+    name: Docker Build + Trivy Scan + Security Gate
+    needs: [sast, sca, secret-scan]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t ${{ env.IMAGE }}:${{ github.sha }} ${{ env.APP_DIR }}
+      - name: Trivy report (HIGH, CRITICAL)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+      - name: Security gate - fail on fixable CRITICAL
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+
+  push:
+    name: Push Image to GHCR
+    needs: docker-scan-gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.APP_DIR }}
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+
+  deploy:
+    name: Deploy to Kubernetes (kind)
+    needs: push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: helm/kind-action@v1
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull pushed image and load into cluster
+        run: |
+          docker pull ${{ env.IMAGE }}:${{ github.sha }}
+          kind load docker-image ${{ env.IMAGE }}:${{ github.sha }} --name chart-testing
+      - name: Deploy
+        run: |
+          sed -i "s|__IMAGE_TAG__|${{ github.sha }}|g" k8s/deployment.yaml
+          kubectl apply -f k8s/
+          kubectl rollout status deployment/session17-python --timeout=120s
+          kubectl get pods,svc -l app=session17-python
+      - name: Smoke test
+        run: |
+          kubectl run smoke --image=curlimages/curl:8.5.0 --restart=Never --rm -i -- \
+            curl -s http://session17-python/api/status
