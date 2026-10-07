@@ -1,0 +1,99 @@
+name: Session 16 CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "session-16-github-actions/MyTask/demo-project/**"
+      - ".github/workflows/session16-cicd.yml"
+  workflow_dispatch:
+
+env:
+  APP_DIR: session-16-github-actions/MyTask/demo-project
+  IMAGE: ghcr.io/aanviiii/session16-calculator
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run unit tests
+        run: pytest -v
+
+  build:
+    name: Build
+    needs: test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build application
+        run: |
+          chmod +x build.sh
+          ./build.sh
+          cat build/build-info.txt
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: calculator-build
+          path: ${{ env.APP_DIR }}/build/
+
+  docker:
+    name: Docker Build & Push
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR (uses GITHUB_TOKEN secret)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.APP_DIR }}
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+
+  deploy:
+    name: Deploy to Kubernetes (kind)
+    needs: docker
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+      - name: Build image and load into cluster
+        run: |
+          docker build -t calculator:ci .
+          kind load docker-image calculator:ci --name chart-testing
+      - name: Deploy
+        run: |
+          kubectl apply -f k8s/
+          kubectl rollout status deployment/calculator --timeout=120s
+          kubectl get pods,svc -l app=calculator
+      - name: Smoke test
+        run: |
+          kubectl run smoke --image=curlimages/curl:8.5.0 --restart=Never --rm -i -- \
+            curl -s "http://calculator/add?a=10&b=5"
